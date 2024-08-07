@@ -18,7 +18,8 @@ pip install -r requirements.txt
 La solución para el trabajo práctico se encuentra en el archivo `solution_notebook.ipynb`. Para ejecutarlo, abrir el archivo con Jupyter Notebook y ejecutar todas las celdas.
 
 Para mantener el código ordenado, se ha creado un directorio `src` que contiene los siguientes módulos:
-- [image_processing_functions.py](src/image_processing_functions.py): Contiene las funciones necesarias para procesar las imágenes.
+- [template_matching_functions.py](src/template_matching_functions.py): Contiene las funciones necesarias para realizar el template matching.
+- [image_processing_functions.py](src/image_processing_functions.py): Contiene las funciones de procesamiento de imágenes como la detección de bordes y la aplicación de non-maximum suppression.
 - [utility_functions.py](src/utility_functions.py): Contiene funciones de utilidad para la lectura de imágenes y el cálculo de métricas.
 
 ## Autores
