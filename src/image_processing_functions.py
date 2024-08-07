@@ -177,7 +177,7 @@ def detect_single_logo_in_image(img_path: str, template_path: str):
         
         plt.show()
 
-def non_max_suppression(boxes: np.array, scores: np.array, iou_threshold: float) -> list:
+def non_max_suppression(boxes: np.array, scores: np.array, iou_threshold: float) -> tuple:
     """
     Performs non-maximum suppression on a set of bounding boxes based 
     on their scores and intersection-over-union (IoU) threshold.
@@ -186,9 +186,9 @@ def non_max_suppression(boxes: np.array, scores: np.array, iou_threshold: float)
         boxes (numpy.ndarray): An array of shape (N, 4) representing the coordinates of the top-left corner and the bottom-right corner of each box.
         scores (numpy.ndarray): An array of shape (N,) representing the scores of each box.
         iou_threshold (float): The threshold value for the IoU. Boxes with an IoU greater than this threshold will be suppressed.
-    Returns:
-        list: A list of indices representing the boxes to keep after non-maximum suppression.
         
+    Returns:
+        tuple: A tuple containing a list of indices representing the boxes to keep after non-maximum suppression and their corresponding scores.
     """
     # Extract the coordinates of the top-left corner and the bottom-right corner of each box
     x1 = boxes[:, 0]
@@ -204,11 +204,13 @@ def non_max_suppression(boxes: np.array, scores: np.array, iou_threshold: float)
 
     # Initialize the list of indices to keep
     keep = []
+    keep_scores = []
     
     while order.size > 0:
         # Select the box with the highest score
         i = order[0]
         keep.append(i)
+        keep_scores.append(scores[i])
 
         # Find the coordinates of the intersection area between the selected box and the rest
         xx1 = np.maximum(x1[i], x1[order[1:]])
@@ -231,4 +233,146 @@ def non_max_suppression(boxes: np.array, scores: np.array, iou_threshold: float)
         
         order = order[inds + 1]
 
-    return keep
+    return keep, keep_scores
+
+def find_best_template_scale(image: np.ndarray, template: np.ndarray, scales: np.ndarray) -> float:
+    """
+    Find the best scale for the template based on the maximum matching score.
+    
+    Parameters:
+        image (np.ndarray): The image where the template is to be found.
+        template (np.ndarray): The template to be found in the image.
+        scales (np.ndarray): The scales to resize the template to.
+    
+    Returns:
+        best_scale (float): The best scale for the template.
+    """
+    # Initialize the best match, scale, maximum value, and top left corner.
+    best_scale = None
+    best_max_val = -np.inf
+
+    for scale in scales:
+        # Resize the template to the current scale.
+        resized_template = cv.resize(template, None, fx=scale, fy=scale, interpolation=cv.INTER_LINEAR)
+        
+        # Apply Canny edge detection to the resized template.
+        resized_template = cv.Canny(resized_template, 10, 150)
+        
+        # Get the width and height of the resized template.
+        w, h = resized_template.shape[::-1]
+
+        if w <= image.shape[1] and h <= image.shape[0]:
+            # Apply template matching to the image.
+            res = cv.matchTemplate(image, resized_template, cv.TM_CCOEFF_NORMED)
+            # Get the maximum value and its location.
+            min_val, max_val, min_loc, max_loc = cv.minMaxLoc(res)
+            
+            # If the maximum value is greater than the best maximum value, 
+            # update the best maximum value, scale, match, and top left corner.
+            if max_val > best_max_val:
+                best_max_val = max_val
+                best_scale = scale
+
+    return best_scale
+
+def detect_multiple_logo_in_image(img_path: str, template_path: str):
+    """
+    This function detects multiple instances of a logo in an image.
+    
+    Parameters:
+        img_path (str): The path to the image.
+        template_path (str): The path to the template.
+    
+    Returns:
+        None
+    """
+    # Load the image and convert to grayscale
+    img_rgb = cv.imread(img_path)
+    img_gray = cv.cvtColor(img_rgb, cv.COLOR_BGR2GRAY)
+
+    # Load the template and get its dimensions
+    template = cv.imread(template_path, 0)
+    
+    # Apply Gaussian blur to the image
+    img_gray_blurred = cv.GaussianBlur(img_gray, (3, 3), 0)
+
+    # Apply adaptive Canny edge detection to the image
+    img_gray_edges = adaptive_canny_edge_detection(img_gray_blurred)
+
+    # Calculate the size ratio of the template to the main image
+    height_ratio = template.shape[0] / img_gray_blurred.shape[0]
+    width_ratio = template.shape[1] / img_gray_blurred.shape[1]
+    
+    # Set default min and max scales
+    min_scale = 0.5
+    max_scale = 1.5
+    
+    # If height ratio is too small, and the width ratio large
+    if height_ratio < 0.3 and width_ratio > 0.5:
+        min_scale = 0.2
+    
+    # If height and width ratios are too small
+    if height_ratio < 0.2 and width_ratio < 0.3:
+        min_scale = 3.0
+        max_scale = 4.0
+    
+    print(f"Template height ratio: {height_ratio}")
+    print(f"Template width ratio: {width_ratio}")
+
+    # Define the scales to resize the template
+    scales = np.linspace(min_scale, max_scale, 20) 
+    
+    # Find the best scale for the template
+    scale = find_best_template_scale(img_gray_edges, template, scales)
+
+    print(f"Best scale: {scale}")
+
+    # Resize the template to the best scale
+    template = cv.resize(template, None, fx=scale, fy=scale)
+
+    # Get the width and height of the template
+    template_width, template_height = template.shape[::-1]
+
+    # Apply Canny edge detection to the template
+    template_edges = cv.Canny(template, 10, 150, L2gradient=True)
+
+    # Apply template matching to the image
+    res = cv.matchTemplate(img_gray_edges, template_edges, cv.TM_CCOEFF_NORMED)
+
+    # Define a threshold to consider a match
+    threshold = np.max(res) - 0.06
+
+    # Find the locations where the matching score is greater than the threshold
+    loc = np.where(res >= threshold)
+
+    # Initialize the bounding boxes and individual scores
+    boxes = []
+    individual_scores = []
+
+    for pt in zip(*loc[::-1]):
+        # Add the bounding box and individual score to the lists
+        boxes.append([pt[0], pt[1], template_width, template_height])
+        individual_scores.append(res[pt[1], pt[0]])
+
+    boxes = np.array(boxes)
+    individual_scores = np.array(individual_scores)
+
+    # Apply non-maximum suppression to the bounding boxes
+    iou_threshold = 0.3
+    keep, keep_scores = non_max_suppression(boxes, individual_scores, iou_threshold)
+
+    # Compute the confidence level for each bounding box
+    confidence_levels = [calculate_confidence_level(individual_scores, score) for score in keep_scores]
+
+    # Get the global confidence level
+    global_confidence_level = np.mean(confidence_levels)
+
+    # Draw the final bounding boxes
+    for i in keep:
+        box = boxes[i]
+        cv.rectangle(img_rgb, (box[0], box[1]), (box[0] + box[2], box[1] + box[3]), (0, 255, 0), 2)
+
+    # Display the image with the bounding boxes
+    plt.imshow(cv.cvtColor(img_rgb, cv.COLOR_BGR2RGB))
+    plt.title(f'Global Confidence Level: {global_confidence_level:.2f}')
+    plt.show()
