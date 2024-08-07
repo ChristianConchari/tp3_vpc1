@@ -20,3 +20,8 @@ La solución para el trabajo práctico se encuentra en el archivo `solution_note
 Para mantener el código ordenado, se ha creado un directorio `src` que contiene los siguientes módulos:
 - [image_processing_functions.py](src/image_processing_functions.py): Contiene las funciones necesarias para procesar las imágenes.
 - [utility_functions.py](src/utility_functions.py): Contiene funciones de utilidad para la lectura de imágenes y el cálculo de métricas.
+
+## Autores
+- Christian Ricardo Conchari Cabrera - chrisconchari@gmail.com
+- German Poletto - germanpp13@gmail.com
+- William Andrés Prada Mancilla - wpradamancilla@gmail.com
