@@ -15,7 +15,7 @@ pip install -r requirements.txt
 ```
 
 ## Ejecución
-La solución para el trabajo práctico se encuentra en el archivo `solution_notebook.ipynb`. Para ejecutarlo, abrir el archivo con Jupyter Notebook y ejecutar todas las celdas.
+La solución para el trabajo práctico se encuentra en el archivo [solution_notebook.ipynb](solution_notebook.ipynb). Para ejecutarlo, abrir el archivo con Jupyter Notebook y ejecutar todas las celdas.
 
 Para mantener el código ordenado, se ha creado un directorio `src` que contiene los siguientes módulos:
 - [template_matching_functions.py](src/template_matching_functions.py): Contiene las funciones necesarias para realizar el template matching.
